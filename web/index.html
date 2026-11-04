@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN" data-density="compact">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>神经元热力探针 · Qwen3-4B-Thinking-2507</title>
+  <link rel="stylesheet" href="/dist/app.css">
+</head>
+<body class="bg-paper text-ink font-body min-h-svh flex flex-col">
+
+  <header class="border-b border-border">
+    <div class="mx-auto max-w-[1280px] px-6 py-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+      <h1 class="text-xl font-bold tracking-[-0.01em]">神经元热力探针</h1>
+      <p id="status" class="text-sm text-muted font-mono" role="status">正在连接探针服务…</p>
+    </div>
+  </header>
+
+  <main class="mx-auto w-full max-w-[1280px] px-6 py-6 space-y-6 grow">
+
+    <nav class="flex gap-1" role="tablist" aria-label="功能切换">
+      <button id="tab-probe" type="button" role="tab" aria-selected="true" aria-controls="view-probe"
+        class="tab-btn rounded-md bg-ink px-3 py-1.5 text-sm text-paper">激活探针</button>
+      <button id="tab-compare" type="button" role="tab" aria-selected="false" aria-controls="view-compare"
+        class="tab-btn rounded-md px-3 py-1.5 text-sm text-ink hover:bg-border/40">对比聊天</button>
+    </nav>
+
+    <div id="view-probe" role="tabpanel" aria-labelledby="tab-probe" class="space-y-6">
+
+    <!-- 输入区 -->
+    <section aria-labelledby="h-input">
+      <h2 id="h-input" class="text-lg font-bold">输入问题</h2>
+      <form id="form" class="mt-3 space-y-3" novalidate>
+        <div>
+          <label for="q" class="block text-sm text-muted">问题</label>
+          <textarea id="q" name="q" rows="3" required
+            class="mt-1 w-full rounded-md border border-border bg-paper-2 px-3 py-2 text-base leading-relaxed"
+            placeholder="例如：用一句话解释什么是注意力机制"></textarea>
+          <p id="q-err" class="mt-1 text-sm text-danger" hidden></p>
+        </div>
+        <div class="flex items-center gap-4 flex-wrap">
+          <button id="btn" type="submit"
+            class="inline-flex min-h-11 items-center justify-center rounded-md bg-accent px-5 text-base font-medium text-paper transition-[transform,background-color] duration-[var(--duration-forge)] ease-[var(--ease-forge)] hover:-translate-y-px active:translate-y-0 disabled:pointer-events-none disabled:opacity-50">
+            开始分析
+          </button>
+          <p class="text-sm text-muted">分析的是这个问题被读完那一刻，36 层 MLP 里 9728 × 36 个神经元各自的激活强度。</p>
+        </div>
+      </form>
+    </section>
+
+    <!-- 错误 -->
+    <div id="error" hidden role="alert" class="rounded-md border border-danger/40 bg-danger/10 px-4 py-3">
+      <p class="text-sm font-medium text-danger">分析失败</p>
+      <p id="error-msg" class="mt-1 text-sm text-ink"></p>
+      <p id="error-hint" class="mt-1 text-sm text-muted"></p>
+      <button id="retry" type="button"
+        class="mt-2 inline-flex min-h-9 items-center rounded-md border border-border px-3 text-sm hover:bg-border/40">重试</button>
+    </div>
+
+    <!-- 加载骨架（与热力图同形） -->
+    <section id="loading" hidden aria-label="正在分析">
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-lg font-bold">正在前向计算…</h2>
+        <p id="loading-note" class="text-sm text-muted" role="status">模型在跑，骨架是热力图最终的位置</p>
+      </div>
+      <div id="skeleton" class="mt-3 space-y-[2px]"></div>
+    </section>
+
+    <!-- 空态 -->
+    <section id="empty">
+      <div class="rounded-lg border border-dashed border-border px-6 py-10 text-center">
+        <p class="text-base font-medium">还没有任何分析结果</p>
+        <p class="mx-auto mt-1 max-w-[46ch] text-sm text-muted">
+          热力图这里会按「1 像素 = 1 个神经元」画出全部 350,208 个格子的激活强度。先在上面输入一个问题，点「开始分析」。
+        </p>
+      </div>
+    </section>
+
+    <!-- 热力图 -->
+    <section id="heat-section" hidden aria-labelledby="h-heat">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <h2 id="h-heat" class="text-lg font-bold">36 层 × 9728 神经元</h2>
+        <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <fieldset class="inline-flex overflow-hidden rounded-md border border-border">
+            <legend class="sr-only">激活视图</legend>
+            <label><input type="radio" name="view" value="last" checked class="peer sr-only" aria-label="视图：最后 token">
+              <span class="block cursor-pointer px-3 py-1.5 text-sm peer-checked:bg-ink peer-checked:text-paper">最后 token</span></label>
+            <label><input type="radio" name="view" value="mean" class="peer sr-only" aria-label="视图：全序列均值">
+              <span class="block cursor-pointer px-3 py-1.5 text-sm peer-checked:bg-ink peer-checked:text-paper">全序列均值</span></label>
+            <label><input type="radio" name="view" value="max" class="peer sr-only" aria-label="视图：全序列最大值">
+              <span class="block cursor-pointer px-3 py-1.5 text-sm peer-checked:bg-ink peer-checked:text-paper">全序列最大值</span></label>
+            <label><input type="radio" name="view" value="token" class="peer sr-only" aria-label="视图：指定 token">
+              <span class="block cursor-pointer px-3 py-1.5 text-sm peer-checked:bg-ink peer-checked:text-paper">指定 token</span></label>
+          </fieldset>
+          <select id="token-sel" aria-label="选择要查看的 token"
+            class="hidden min-h-9 rounded-md border border-border bg-paper-2 px-2 text-sm max-w-[22rem]"></select>
+          <label class="inline-flex items-center gap-1.5 text-sm">
+            <input type="checkbox" id="sqrt-tgl" checked class="accent-accent"> 开方增强
+          </label>
+          <label class="inline-flex items-center gap-1.5 text-sm">
+            截断
+            <select id="pct-sel" class="min-h-9 rounded-md border border-border bg-paper-2 px-2 text-sm">
+              <option value="0.995" selected>99.5% 分位</option>
+              <option value="1">最大值</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <p id="view-note" class="mt-1 text-sm text-muted" role="status"></p>
+
+      <div id="rows" class="mt-3 space-y-[2px]"></div>
+
+      <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
+        <span>低</span>
+        <div class="h-2 w-44 rounded-sm" style="background:linear-gradient(90deg,var(--color-heat-low),var(--color-heat-mid),var(--color-heat-high))"></div>
+        <span>高</span>
+        <span class="inline-block h-2 w-4 rounded-sm" style="background:var(--color-danger)"></span>
+        <span>超范围</span>
+        <span id="legend-note">颜色按各层 99.5% 分位截断归一</span>
+        <span>· 悬停看精确值，点击任意一层看该层最活跃的神经元</span>
+      </div>
+    </section>
+
+    <!-- 层详情 -->
+    <section id="detail" hidden aria-labelledby="h-detail">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <h2 id="h-detail" class="text-lg font-bold">层详情</h2>
+        <p id="detail-sub" class="text-sm text-muted"></p>
+      </div>
+      <table class="mt-3 w-full text-sm">
+        <thead>
+          <tr class="border-b border-border text-left text-muted">
+            <th scope="col" class="py-1.5 pr-3 font-medium">#</th>
+            <th scope="col" class="py-1.5 pr-3 font-medium">神经元</th>
+            <th scope="col" class="py-1.5 pr-3 text-right font-medium">激活值</th>
+            <th scope="col" class="py-1.5 pr-3 text-right font-medium">占层内最大</th>
+            <th scope="col" class="py-1.5 font-medium">激活随 token</th>
+          </tr>
+        </thead>
+        <tbody id="top-tbody"></tbody>
+      </table>
+      <div id="spark-box" hidden class="mt-4 rounded-md border border-border p-3">
+        <p id="spark-title" class="text-sm font-medium"></p>
+        <canvas id="spark" class="mt-2 block h-[90px] w-full" width="1200" height="90"></canvas>
+        <p id="spark-token" class="mt-1 min-h-5 text-xs text-muted font-mono" aria-live="polite"></p>
+        <p class="text-xs text-muted">蓝色段是问题的 token，灰色段是 chat 模板 token；红色柱表示该 token 上激活超出基准；悬停看对应文本。</p>
+      </div>
+    </section>
+
+    </div><!-- /view-probe -->
+
+    <div id="view-compare" role="tabpanel" aria-labelledby="tab-compare" hidden class="space-y-6">
+
+      <section aria-labelledby="h-cmp">
+        <h2 id="h-cmp" class="text-lg font-bold">对比聊天</h2>
+        <form id="cmp-form" class="mt-3 space-y-3" novalidate>
+          <div>
+            <label for="q2" class="block text-sm text-muted">问题</label>
+            <textarea id="q2" name="q2" rows="3"
+              class="mt-1 w-full rounded-md border border-border bg-paper-2 px-3 py-2 text-base leading-relaxed"
+              placeholder="例如：9.11 和 9.8 哪个大？"></textarea>
+            <p id="q2-err" class="mt-1 text-sm text-danger" hidden></p>
+          </div>
+          <div class="flex items-center gap-4 flex-wrap">
+            <fieldset class="inline-flex overflow-hidden rounded-md border border-border">
+              <legend class="sr-only">调整方式</legend>
+              <label><input type="radio" name="cmp-mode" value="steer" checked class="peer sr-only" aria-label="调整方式：语气调整（人格方向）">
+                <span class="block cursor-pointer px-3 py-1.5 text-sm peer-checked:bg-ink peer-checked:text-paper">语气调整（人格方向）</span></label>
+              <label><input type="radio" name="cmp-mode" value="clamp" class="peer sr-only" aria-label="调整方式：钳位抑制">
+                <span class="block cursor-pointer px-3 py-1.5 text-sm peer-checked:bg-ink peer-checked:text-paper">钳位抑制</span></label>
+            </fieldset>
+            <span id="steer-opts" class="inline-flex flex-wrap items-center gap-4">
+              <label id="alpha-box" class="inline-flex items-center gap-2 text-sm">
+                方向强度 α
+                <input type="range" id="cmp-alpha" min="0" max="4" step="0.25" value="1.5" class="w-32 accent-accent">
+                <span id="alpha-val" class="w-8 text-right font-mono">1.5</span>
+              </label>
+              <label class="inline-flex items-center gap-1.5 text-sm">
+                注入层
+                <select id="cmp-layers" class="min-h-9 rounded-md border border-border bg-paper-2 px-2 text-sm">
+                  <option value="deep" selected>仅深层 L31–35</option>
+                  <option value="all">全部层</option>
+                </select>
+              </label>
+              <label class="inline-flex items-center gap-1.5 text-sm">
+                <input type="checkbox" id="cmp-combined" checked class="accent-accent">
+                叠加礼貌＋安全规则 system prompt（实测推荐）
+              </label>
+            </span>
+          </div>
+          <div class="flex items-center gap-4 flex-wrap">
+            <button id="cmp-btn" type="submit"
+              class="inline-flex min-h-11 items-center justify-center rounded-md bg-accent px-5 text-base font-medium text-paper transition-[transform,background-color] duration-[var(--duration-forge)] ease-[var(--ease-forge)] hover:-translate-y-px active:translate-y-0 disabled:pointer-events-none disabled:opacity-50">
+              生成对比
+            </button>
+            <label class="inline-flex items-center gap-1.5 text-sm">
+              生成长度
+              <select id="cmp-len" class="min-h-9 rounded-md border border-border bg-paper-2 px-2 text-sm">
+                <option value="256">256</option>
+                <option value="512">512</option>
+                <option value="1024" selected>1024</option>
+                <option value="2048">2048（长思维链场景）</option>
+              </select>
+              token
+            </label>
+            <p class="text-sm text-muted">同一问题跑两遍（贪心解码）。推荐 α=1.5（验收电池 4/4：安全爆炸/冒烟、普通物流/易用）；投诉+安全场景选 2048 预算，思维链未收尾就加大预算或调低 α。α=0 = 纯 prompt 对照。</p>
+          </div>
+        </form>
+      </section>
+
+      <div id="cmp-error" hidden role="alert" class="rounded-md border border-danger/40 bg-danger/10 px-4 py-3">
+        <p class="text-sm font-medium text-danger">对比生成失败</p>
+        <p id="cmp-error-msg" class="mt-1 text-sm text-ink"></p>
+        <p class="mt-1 text-sm text-muted">如果是模型刚启动，等顶部状态栏出现 CUDA 信息后再点「重试」。</p>
+        <button id="cmp-retry" type="button"
+          class="mt-2 inline-flex min-h-9 items-center rounded-md border border-border px-3 text-sm hover:bg-border/40">重试</button>
+      </div>
+
+      <section id="cmp-loading" hidden aria-label="正在生成对比">
+        <div class="flex items-baseline justify-between">
+          <h2 class="text-lg font-bold">正在生成两版回答…</h2>
+          <p class="text-sm text-muted" role="status">预填充采样基准 → 原版生成 → 钳位生成，通常 10~40 秒 · 已用 <span id="cmp-timer">0</span>s</p>
+        </div>
+        <div id="cmp-skel" class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2"></div>
+      </section>
+
+      <section id="cmp-empty">
+        <div class="rounded-lg border border-dashed border-border px-6 py-10 text-center">
+          <p class="text-base font-medium">还没有对比结果</p>
+          <p class="mx-auto mt-1 max-w-[48ch] text-sm text-muted">
+            抑制器会把「超出该问题正常范围」的神经元激活截回边界，再看回答会不会变。先在上面输入一个问题，点「生成对比」。
+          </p>
+        </div>
+      </section>
+
+      <section id="cmp-result" hidden aria-labelledby="h-cmp-result">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+          <h2 id="h-cmp-result" class="text-lg font-bold">对比结果</h2>
+          <p id="cmp-note" class="text-sm text-muted" role="status"></p>
+        </div>
+        <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <article class="min-w-0 rounded-lg border border-border p-4">
+            <h3 id="before-title" class="text-base font-medium">调整前 · 原版</h3>
+            <p id="before-meta" class="mt-0.5 text-xs text-muted font-mono"></p>
+            <details id="before-think" class="mt-2" hidden>
+              <summary class="cursor-pointer text-sm text-muted">思考过程（折叠）</summary>
+              <p id="before-think-text" class="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-muted"></p>
+            </details>
+            <p id="before-answer" class="mt-2 whitespace-pre-wrap text-base leading-relaxed"></p>
+          </article>
+          <article class="min-w-0 rounded-lg border border-border p-4">
+            <h3 id="after-title" class="text-base font-medium">调整后</h3>
+            <p id="after-meta" class="mt-0.5 text-xs text-muted font-mono"></p>
+            <details id="after-think" class="mt-2" hidden>
+              <summary class="cursor-pointer text-sm text-muted">思考过程（折叠）</summary>
+              <p id="after-think-text" class="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-muted"></p>
+            </details>
+            <p id="after-answer" class="mt-2 whitespace-pre-wrap text-base leading-relaxed"></p>
+          </article>
+        </div>
+        <div id="cmp-stats" class="mt-4 rounded-lg border border-border p-4">
+          <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+            <h3 id="stats-title" class="text-base font-medium">调向器工作记录</h3>
+            <p id="cmp-stats-note" class="text-sm text-muted"></p>
+          </div>
+          <div class="mt-3 grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div>
+              <p id="bars-label" class="text-xs text-muted">每层方向原始强度 ‖Δ‖</p>
+              <div id="clamp-bars" class="mt-1 flex h-16 items-end gap-[1px]"></div>
+            </div>
+            <div>
+              <p id="thr-label" class="text-xs text-muted">每层实际加上的偏移量（α×std 缩放后）</p>
+              <div id="thr-bars" class="mt-1 flex h-16 items-end gap-[1px]"></div>
+            </div>
+          </div>
+          <p id="apology-note" class="mt-3 text-sm text-muted" role="status"></p>
+          <p id="stats-caliber" class="mt-1 text-xs text-muted">口径说明随模式变化。</p>
+        </div>
+      </section>
+
+    </div><!-- /view-compare -->
+  </main>
+
+  <footer class="border-t border-border">
+    <p class="mx-auto max-w-[1280px] px-6 py-3 text-xs text-muted">
+      口径：激活取每层 down_proj 的输入（SwiGLU 之后）；提示词套用模型自带 chat 模板，不生成回复；输入上限 1024 token；结果在内存里保留最近 2 次。
+    </p>
+  </footer>
+
+  <div id="tip" hidden
+    class="pointer-events-none fixed z-10 rounded bg-ink px-2 py-1 text-xs text-paper font-mono"></div>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+web/node_modules/
+
+# 工具状态
+.forge/
+
+# 本地杂项
+*.log
+.DS_Store

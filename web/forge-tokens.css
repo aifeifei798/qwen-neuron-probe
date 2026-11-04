@@ -1,0 +1,31 @@
+@theme {
+  /* design-forge · Harbor · harbor */
+  --color-paper: oklch(99% 0.003 250);
+  --color-ink: oklch(25% 0.02 250);
+  --color-muted: oklch(52% 0.02 250);
+  --color-accent: oklch(55% 0.15 255);
+  --color-border: oklch(92% 0.005 250);
+
+  --font-display: "Instrument Sans", ui-serif, Georgia, serif;
+  --font-body: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 8px;
+
+  --ease-forge: cubic-bezier(0.3, 0, 0.2, 1);
+  --duration-forge: 150ms;
+
+  --space-1: 3px;
+  --space-2: 6px;
+  --space-3: 10px;
+  --space-4: 13px;
+  --space-6: 19px;
+  --space-8: 26px;
+  --space-12: 38px;
+  --space-16: 51px;
+  --space-24: 77px;
+  --space-section: 77px;
+}

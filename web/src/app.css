@@ -1,0 +1,33 @@
+@import "tailwindcss";
+@import "../forge-tokens.css";
+
+@source "../index.html";
+@source "../app.js";
+
+/* 热度色带与状态色：只在 token 块出现色值 */
+@theme {
+  --color-heat-low: oklch(96.5% 0.008 250);
+  --color-heat-mid: oklch(55% 0.15 255);
+  --color-heat-high: oklch(60% 0.2 45);
+  --color-ok: oklch(58% 0.13 150);
+  --color-warn: oklch(66% 0.14 85);
+  --color-danger: oklch(52% 0.19 25);
+  --color-paper-2: oklch(97% 0.005 250);
+}
+
+@layer base {
+  ::selection { background: var(--color-accent); color: var(--color-paper); }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  html { scrollbar-color: var(--color-muted) transparent; caret-color: var(--color-accent); }
+  td, th { font-variant-numeric: tabular-nums; }
+  a { text-underline-offset: 3px; }
+}
+
+@layer components {
+  .heat-cv { cursor: crosshair; }
+  .row-sel .heat-cv { outline: 1.5px solid var(--color-accent); outline-offset: 1px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
