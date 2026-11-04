@@ -12,13 +12,28 @@
 
 ## 快速开始
 
+**① 下载模型权重**（约 8GB，二选一）：
+
+```bash
+huggingface-cli download Qwen/Qwen3-4B-Thinking-2507 --local-dir ./Qwen3-4B-Thinking-2507
+# 国内网络可用 ModelScope:
+modelscope download --model Qwen/Qwen3-4B-Thinking-2507 --local_dir ./Qwen3-4B-Thinking-2507
+```
+
+**② 装环境**：
+
 ```bash
 ./install.sh                       # 建 venv 装依赖（有 GPU 自动装 CUDA 版 torch）
+```
+
+**③ 启动**：
+
+```bash
+export QWEN_MODEL_PATH=$PWD/Qwen3-4B-Thinking-2507   # 模型路径非默认时必设
 ./serve.sh                         # http://127.0.0.1:8790 ，模型首次加载约 10–30 秒
 ```
 
-- 模型路径非默认时：`export QWEN_MODEL_PATH=/path/to/Qwen3-4B-Thinking-2507`（也可写进
-  `server/probe.py` 默认值）；改端口：`PORT=9000 ./serve.sh`
+- 改端口：`PORT=9000 ./serve.sh`
 - 国内网络：`./install.sh --mirror huawei`（或 tuna）；无 NVIDIA GPU：`./install.sh --cpu`
 - 依赖：Python ≥3.10、torch ≥2.7（Blackwell 显卡需 sm_120 支持版本）、transformers 5.x、
   fastapi、uvicorn、numpy。改前端后重建 CSS：
@@ -60,7 +75,7 @@ cd web && ./node_modules/.bin/tailwindcss -i src/app.css -o dist/app.css --minif
 | `GET /api/neuron?rid=&layer=&neuron=` | 单神经元随 token 的激活曲线 |
 | `POST /api/compare` | `{question, max_new_tokens, mode, alpha, combined, steer_layers}` → 抑制/调整前后两版回答 + 干预统计 |
 
-## 实验结论（详见 reports/）
+## 实验结论（详见 [干预位置-副作用-归因边界](reports/干预位置-副作用-归因边界.md)）
 
 1. **prompt 主导**：α=0 对照证实道歉词归零主要是 prompt 的功劳，方向向量独立贡献的
    强主张已撤回；深层注入仅留痕迹级增强（共情/安全确认倾向）
@@ -78,10 +93,17 @@ server/probe.py     hook 捕获 + 钳位/调向 hooks + fp16 编码 + 结果缓�
 server/main.py      FastAPI 路由 + 静态托管
 web/                单页 UI（Tailwind v4；src/ 源码，dist/ 构建产物）
 experiments/        可复跑实验脚本：suppress_study / steer_study / router_case
-reports/            干预位置-副作用-归因边界 · 礼貌客服微调-数据准备报告
+reports/            [干预位置-副作用-归因边界](reports/干预位置-副作用-归因边界.md)
+                    [礼貌客服微调-数据准备报告](reports/礼貌客服微调-数据准备报告.md)
 install.sh          环境安装（uv/pip 自适应、CUDA/CPU 探测、国内镜像开关）
 serve.sh            启动脚本（默认端口 8790，PORT 可改）
 ```
+
+## 许可证
+
+代码按 [MIT](LICENSE) 发布；`reports/` 目录下的两份文档按
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.zh) 发布，引用请注明出处
+`github.com/aifeifei798/qwen-neuron-probe`。
 
 ## 工具链说明
 

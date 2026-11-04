@@ -6,6 +6,9 @@ __pycache__/
 # Node
 web/node_modules/
 
+# web/dist/ 是构建产物但【有意提交】：克隆后无需 node 即可 ./serve.sh 直接跑；
+# 改前端后按 README 的命令重建并随代码一起提交。
+
 # 工具状态
 .forge/
 
