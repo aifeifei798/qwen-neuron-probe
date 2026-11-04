@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import base64
+import os
 import threading
 import time
 from collections import OrderedDict
@@ -15,7 +16,10 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-MODEL_PATH = "/home/feifei/develop/models/Qwen3-4B-Thinking-2507"
+MODEL_PATH = os.environ.get(
+    "QWEN_MODEL_PATH",
+    "/home/feifei/develop/models/Qwen3-4B-Thinking-2507",
+)
 MAX_INPUT_TOKENS = 1024          # 输入 token 上限，防止激活缓存爆内存
 MAX_CACHED_RESULTS = 2           # 内存里保留最近 N 次分析（每次最多约 700MB）
 AGG_KINDS = ("last", "mean", "max")

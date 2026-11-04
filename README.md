@@ -13,11 +13,15 @@
 ## 快速开始
 
 ```bash
-./serve.sh          # http://127.0.0.1:8790 ，模型首次加载约 10–30 秒
+./install.sh                       # 建 venv 装依赖（有 GPU 自动装 CUDA 版 torch）
+./serve.sh                         # http://127.0.0.1:8790 ，模型首次加载约 10–30 秒
 ```
 
-依赖：Python 3.12 venv（`.venv/`），torch ≥2.15 (CUDA, sm_120)、transformers 5.x、
-fastapi、uvicorn、numpy。改前端后重建 CSS：
+- 模型路径非默认时：`export QWEN_MODEL_PATH=/path/to/Qwen3-4B-Thinking-2507`（也可写进
+  `server/probe.py` 默认值）；改端口：`PORT=9000 ./serve.sh`
+- 国内网络：`./install.sh --mirror huawei`（或 tuna）；无 NVIDIA GPU：`./install.sh --cpu`
+- 依赖：Python ≥3.10、torch ≥2.7（Blackwell 显卡需 sm_120 支持版本）、transformers 5.x、
+  fastapi、uvicorn、numpy。改前端后重建 CSS：
 
 ```bash
 cd web && ./node_modules/.bin/tailwindcss -i src/app.css -o dist/app.css --minify
@@ -75,7 +79,8 @@ server/main.py      FastAPI 路由 + 静态托管
 web/                单页 UI（Tailwind v4；src/ 源码，dist/ 构建产物）
 experiments/        可复跑实验脚本：suppress_study / steer_study / router_case
 reports/            干预位置-副作用-归因边界 · 礼貌客服微调-数据准备报告
-serve.sh            启动脚本（端口 8790）
+install.sh          环境安装（uv/pip 自适应、CUDA/CPU 探测、国内镜像开关）
+serve.sh            启动脚本（默认端口 8790，PORT 可改）
 ```
 
 ## 工具链说明
